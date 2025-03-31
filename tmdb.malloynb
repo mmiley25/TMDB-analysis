@@ -1,0 +1,190 @@
+>>>malloy
+source: tmdb is duckdb.table('TMDB_movie_dataset_v11.csv') extend {
+
+  measure: 
+    movie_count is count(),
+    avg_rating is vote_average.avg(),
+    total_revenue is revenue.sum(),
+    total_budget is budget.sum(),
+    avg_runtime is runtime.avg(),
+    avg_popularity is popularity.avg()
+
+  dimension:
+    release_year is year(release_date),
+    is_adult is adult,
+    language is original_language,
+    genre is genres,
+    production_company is production_companies,
+    country is production_countries
+}
+>>>markdown
+## Top Rated Movies 
+>>>malloy
+# table
+run: duckdb.table('TMDB_movie_dataset_v11.csv') -> {
+  group_by: title
+  aggregate:
+    avg_rating is vote_average.avg(),
+    vote_count is vote_count.sum()
+  where: vote_count > 10000
+  order_by: avg_rating desc
+  limit: 10
+}
+>>>markdown
+# Highest Revenue Total 
+>>>malloy
+# table
+run: duckdb.table('TMDB_movie_dataset_v11.csv') -> {
+  where: 
+    revenue > 100000000 
+    and year(release_date) > 1980 
+    and original_language = "en"
+    and vote_count > 1000
+    and budget > 0
+  select:
+    title,
+    release_year is year(release_date),
+    revenue
+  order_by: revenue desc
+  limit: 10
+}
+>>>markdown
+# What are the most popular genres based on average popularity?
+>>>malloy
+run: duckdb.table('TMDB_movie_dataset_v11.csv') -> {
+  group_by: genre is genres
+  aggregate: avg_popularity is popularity.avg()
+  order_by: avg_popularity desc
+  limit: 10
+}
+>>>markdown
+# Which production companies made the most revenue?
+>>>malloy
+run: tmdb -> {
+  group_by: production_company
+  where: revenue > 100000000 and vote_count > 500
+  aggregate: total_revenue is revenue.sum()
+  order_by: total_revenue desc
+  limit: 10
+}
+>>>markdown
+# Is there a pattern between runtime and rating?
+>>>malloy
+# line_chart
+run: duckdb.table('TMDB_movie_dataset_v11.csv') -> {
+  where: runtime >= 30 and runtime <= 240
+  group_by: runtime_bucket is floor(runtime / 30) * 30
+  aggregate: avg_rating is vote_average.avg()
+  order_by: runtime_bucket
+}
+>>>markdown
+# What’s the ROI (return on investment) of the top 10 most profitable movies?
+>>>malloy
+# table
+run: duckdb.table('TMDB_movie_dataset_v11.csv') -> {
+  where: 
+    revenue > 100000000 
+    and budget >= 1000000 
+    and vote_count > 1000
+    and length(title) < 100
+  select:
+    title,
+    original_language,
+    release_year is year(release_date),
+    revenue,
+    budget,
+    roi is revenue / nullif(budget, 0)
+  order_by: roi desc
+  limit: 10
+}
+>>>markdown
+# Marvel's Dominance 
+>>>malloy
+# bar_chart
+run: tmdb -> {
+  group_by: production_company
+  where: revenue > 100000000 and vote_count > 500
+  aggregate: total_revenue is revenue.sum()
+  order_by: total_revenue desc
+  limit: 10
+}
+>>>markdown
+# High Budget Movies
+>>>malloy
+run: tmdb -> {
+  where: budget > 0 and revenue > 0 and vote_average > 0 and popularity > 0
+  select:
+    title,
+    budget,
+    avg_rating is vote_average,
+    avg_popularity is popularity
+  order_by: budget desc
+  limit: 30
+}
+>>>markdown
+# Low vs. High Budget Movies: Average Rating Comparison
+>>>markdown
+\>>>malloy
+run: duckdb.table('TMDB_movie_dataset_v11.csv') -> {
+  where: revenue > 0 and budget > 0 and production_countries = "United States of America"
+  select:
+    title,
+    revenue,
+    budget,
+    production_countries,
+    roi is revenue / nullif(budget, 0)
+  order_by: roi desc
+  limit: 10
+}
+>>>malloy
+# bar_chart
+run: tmdb -> {
+  where: budget > 0 and revenue > 0
+  group_by: budget
+  aggregate:
+    avg_rating is vote_average.avg(),
+    avg_popularity is popularity.avg()
+  order_by: budget
+  limit: 50
+}
+>>>markdown
+# Popular Movies with Low Budgets
+>>>malloy
+run: tmdb -> {
+  where: 
+    budget > 0 
+    and budget < 1000000 
+    and revenue > 1000000 
+    and vote_count > 500
+  select: 
+    title,
+    release_year,
+    budget,
+    revenue,
+    roi is revenue / nullif(budget, 0),
+    vote_count
+  order_by: roi desc
+  limit: 15
+}
+>>>markdown
+# Overhyped vs Well-Rated
+>>>malloy
+run: tmdb -> {
+  where: 
+    vote_count > 1000 and 
+    popularity > 0 and 
+    vote_average > 0 and 
+    budget > 0
+  select:
+    title,
+    popularity,
+    vote_average,
+    vote_count,
+    budget,
+    release_year is year(release_date),
+    production_company
+  order_by: popularity desc
+  limit: 20
+}
+>>>markdown
+>>>malloy
